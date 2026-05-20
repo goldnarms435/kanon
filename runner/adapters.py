@@ -78,7 +78,13 @@ class OpenAICompatibleJudge:
         return parse_rubric_judge_result(case, raw)
 
 
-def build_case_messages(case: Case) -> list[dict[str, str]]:
+DEFAULT_SYSTEM_PROMPT = (
+    "You are being evaluated on expert networking knowledge. "
+    "Do not use external tools. Follow the requested output format."
+)
+
+
+def build_case_messages(case: Case, system_prompt: str | None = None) -> list[dict[str, str]]:
     scoring_type = case.scoring.get("type")
     if scoring_type == "multiple_choice":
         instruction = (
@@ -90,10 +96,7 @@ def build_case_messages(case: Case) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
-            "content": (
-                "You are being evaluated on expert networking knowledge. "
-                "Do not use external tools. Follow the requested output format."
-            ),
+            "content": system_prompt or DEFAULT_SYSTEM_PROMPT,
         },
         {"role": "user", "content": f"{case.prompt}\n\n{instruction}"},
     ]

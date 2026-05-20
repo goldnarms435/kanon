@@ -26,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     cases = load_cases([Path(path) for path in args.cases])
     answers = parse_answers_jsonl(args.responses_jsonl) if args.responses_jsonl else {}
     cache = ResponseCache(Path(args.cache) if args.cache else None)
+    system_prompt = load_text_file(args.system_prompt_file)
 
     client = None
     if not args.dry_run and not answers:
@@ -52,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = []
     for case in cases:
-        response = get_response(case, args, answers, cache, client)
+        response = get_response(case, args, answers, cache, client, system_prompt)
         score = score_case(case, response, judge)
         results.append(build_result_row(case, response, score, args.model, run_id))
         print(format_progress(case, score))
@@ -85,6 +86,13 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--out", default="leaderboard/runs", help="Output directory")
     parser.add_argument("--run-id", help="Stable run ID for output filenames")
     parser.add_argument("--model", default="manual", help="Model name for this run")
+    parser.add_argument(
+        "--system-prompt-file",
+        help=(
+            "Optional agent profile or system prompt file to use for model calls, "
+            "for example agents/ccie-network-sme-v0.1.md"
+        ),
+    )
     parser.add_argument(
         "--base-url",
         default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
@@ -143,6 +151,7 @@ def get_response(
     answers: dict[str, str],
     cache: ResponseCache,
     client: OpenAICompatibleClient | None,
+    system_prompt: str | None,
 ) -> str:
     if case.id in answers:
         return answers[case.id]
@@ -152,13 +161,20 @@ def get_response(
         return str(case.data.get("reference_answer", ""))
     if client is None:
         raise RuntimeError("model client was not configured")
-    key = cache.key(model=args.model, case_id=case.id, prompt=case.prompt)
+    prompt_for_cache = f"{system_prompt or ''}\n\0\n{case.prompt}"
+    key = cache.key(model=args.model, case_id=case.id, prompt=prompt_for_cache)
     cached = cache.get(key)
     if cached is not None:
         return cached
-    response = client.complete(build_case_messages(case))
+    response = client.complete(build_case_messages(case, system_prompt=system_prompt))
     cache.set(key, response)
     return response
+
+
+def load_text_file(path: str | None) -> str | None:
+    if not path:
+        return None
+    return Path(path).read_text(encoding="utf-8")
 
 
 def build_result_row(

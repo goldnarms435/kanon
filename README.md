@@ -1,5 +1,10 @@
 # Kanon
 
+[![Validate Cases](https://github.com/goldnarms435/kanon/actions/workflows/validate-cases.yml/badge.svg?branch=main)](https://github.com/goldnarms435/kanon/actions/workflows/validate-cases.yml)
+[![Runner Tests](https://github.com/goldnarms435/kanon/actions/workflows/runner-tests.yml/badge.svg?branch=main)](https://github.com/goldnarms435/kanon/actions/workflows/runner-tests.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
+
 **The networking knowledge benchmark for LLMs and agents.**
 
 Status: v0.1 — seed release (15 cases, BGP path-selection + EVPN focus).
@@ -73,6 +78,16 @@ python -m runner --dry-run --model reference-answer --cases cases --out leaderbo
 For OpenAI-compatible endpoints, set `OPENAI_API_KEY` and use `--base-url`.
 Rubric cases require `--judge-model` to produce scored rubric results. See
 `runner/README.md` for full usage.
+
+To evaluate an agent profile rather than a bare model, pass a system prompt:
+
+```bash
+python -m runner \
+  --model <model-name> \
+  --system-prompt-file agents/ccie-network-sme-v0.1.md \
+  --cases cases \
+  --out leaderboard/runs
+```
 
 ## Roadmap to v0.1 public release
 

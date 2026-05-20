@@ -49,6 +49,20 @@ OPENAI_API_KEY=... python -m runner \
 
 Compatible local or hosted gateways can be used by changing `--base-url`.
 
+## Run with the CCIE Agent Profile
+
+Kanon includes a first-pass CCIE networking SME agent profile at
+`agents/ccie-network-sme-v0.1.md`. Use it as the system prompt for benchmark
+runs:
+
+```bash
+OPENAI_API_KEY=... python -m runner \
+  --model gpt-4.1 \
+  --system-prompt-file agents/ccie-network-sme-v0.1.md \
+  --cases cases \
+  --out leaderboard/runs
+```
+
 ## Rubric Scoring
 
 Rubric cases require a judge model. Without one, the runner records the model
