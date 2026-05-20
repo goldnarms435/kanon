@@ -12,7 +12,7 @@ status: active
 author: netbench-seed
 created_at: "2026-05-20"
 reviewed_by:
-  - "pending: CCIE editor"
+  - "Ernest McCaleb (CCIE editor)"
 references:
   - "draft-ietf-idr-best-external (BGP Best-External)"
   - "Cisco IOS-XE BGP Best External Configuration Guide"

@@ -13,7 +13,7 @@ status: active
 author: netbench-seed
 created_at: "2026-05-20"
 reviewed_by:
-  - "pending: CCIE editor"
+  - "Ernest McCaleb (CCIE editor)"
 references:
   - "draft-ietf-bess-evpn-inter-subnet-forwarding"
   - "RFC 9135 (Integrated Routing and Bridging in EVPN)"

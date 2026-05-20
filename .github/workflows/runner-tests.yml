@@ -1,0 +1,39 @@
+name: Runner Tests
+
+on:
+  pull_request:
+    paths:
+      - "runner/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/runner-tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "runner/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/runner-tests.yml"
+
+jobs:
+  test-runner:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run runner tests
+        run: pytest
+
+      - name: Smoke-test runner dry run
+        run: python -m runner --dry-run --model reference-answer --cases cases --out /tmp/kanon-runs

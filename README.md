@@ -32,7 +32,7 @@ Kanon is designed to be **published first** — before any networking agent ship
 /spec/                   Eval format spec and schema.
 /cases/<category>/       One YAML per case.
 /rubrics/                Judge prompts for rubric-scored cases.
-/runner/                 (v0.1.x) Python harness for scoring models.
+/runner/                 Python harness for scoring models.
 /leaderboard/            (v0.1.x) Versioned baseline runs.
 ```
 
@@ -50,12 +50,36 @@ Kanon is designed to be **published first** — before any networking agent ship
 4. `cases/evpn/evpn-005.yaml` — full troubleshooting case with diagnostic ordering.
 5. `rubrics/standard-rubric-v0.1.md` — judge prompt for rubric cases.
 
+## Running the benchmark
+
+Install the runner:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Validate the case files:
+
+```bash
+python scripts/validate_cases.py
+```
+
+Smoke-test the runner without calling a model:
+
+```bash
+python -m runner --dry-run --model reference-answer --cases cases --out leaderboard/runs
+```
+
+For OpenAI-compatible endpoints, set `OPENAI_API_KEY` and use `--base-url`.
+Rubric cases require `--judge-model` to produce scored rubric results. See
+`runner/README.md` for full usage.
+
 ## Roadmap to v0.1 public release
 
-- [ ] CCIE editor validation pass on the 15 seed cases.
+- [x] CCIE editor validation pass on the 15 seed cases.
 - [ ] Expand to 60–80 cases (~45 BGP, ~25 EVPN, ~10 mixed troubleshooting).
 - [ ] Hold back ~25% as private contamination set.
-- [ ] Build runner (Python, OpenAI-compatible endpoint adapter).
+- [x] Build runner (Python, OpenAI-compatible endpoint adapter).
 - [ ] Run baselines: Claude (Opus/Sonnet), GPT frontier, Llama-70B.
 - [ ] Publish leaderboard + format spec PR template + contribution guide.
 

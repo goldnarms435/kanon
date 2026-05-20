@@ -12,7 +12,7 @@ status: active
 author: netbench-seed
 created_at: "2026-05-20"
 reviewed_by:
-  - "pending: CCIE editor"
+  - "Ernest McCaleb (CCIE editor)"
 references:
   - "RFC 4271 §9.1.2.1 (Route Resolvability Condition)"
   - "Cisco IOS BGP — Inaccessible Next-Hop and next-hop-self"

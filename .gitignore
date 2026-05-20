@@ -96,4 +96,5 @@ Icon
 
 # Local runner artifacts
 leaderboard/runs/
+.kanon-cache/
 *.log

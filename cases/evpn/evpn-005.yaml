@@ -14,7 +14,7 @@ status: active
 author: netbench-seed
 created_at: "2026-05-20"
 reviewed_by:
-  - "pending: CCIE editor"
+  - "Ernest McCaleb (CCIE editor)"
 references:
   - "RFC 7432 §7.2 (Type-2 MAC/IP)"
   - "RFC 7432 §7.3 (Type-3 IMET)"

@@ -11,7 +11,7 @@ status: active
 author: netbench-seed
 created_at: "2026-05-20"
 reviewed_by:
-  - "pending: CCIE editor"
+  - "Ernest McCaleb (CCIE editor)"
 references:
   - "RFC 5065 (Autonomous System Confederations for BGP)"
 
