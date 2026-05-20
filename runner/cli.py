@@ -140,7 +140,7 @@ def build_judge(args: argparse.Namespace) -> OpenAICompatibleJudge | None:
         api_key=api_key,
         model=args.judge_model,
         timeout=args.timeout,
-        temperature=0.0,
+        temperature=args.temperature,
     )
     return OpenAICompatibleJudge(client)
 
