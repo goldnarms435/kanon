@@ -1,0 +1,67 @@
+id: bgp-008
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: med-defaults
+difficulty: expert
+tags:
+  - med
+  - default-behavior
+  - missing-attribute
+  - vendor-divergence
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 4271 §9.1.2.2 (MED comparison)"
+  - "Cisco IOS bgp bestpath med missing-as-worst documentation"
+
+prompt: |
+  Two iBGP paths to 10.0.0.0/24 reach R1 with all attributes equal
+  EXCEPT that Path A carries MED=50 and Path B carries no MED
+  attribute at all (the attribute is absent from the UPDATE).
+
+  By default, on Cisco IOS / IOS-XE, which path wins on MED comparison
+  and how is the missing MED treated?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "Path B wins. A missing MED is treated as MED=0 (most preferred) by default."
+    B: "Path A wins. A missing MED is treated as the maximum value (least preferred) by default."
+    C: "Path A wins. MED comparison is skipped entirely when one path is missing the attribute."
+    D: "Tie. MED comparison is undefined when one attribute is missing; comparison moves to the next tiebreaker."
+  correct: A
+
+reference_answer: |
+  **A. Path B wins; missing MED is treated as MED=0 (most preferred)
+  by default on Cisco IOS / IOS-XE.**
+
+  Default behavior:
+    - When MED is absent, value 0 is substituted.
+    - Lower MED is preferred.
+    - Therefore Path B (treated as MED=0) beats Path A (MED=50).
+
+  This default can be inverted with:
+
+      bgp bestpath med missing-as-worst
+
+  Which treats the missing MED as the maximum value (4,294,967,295),
+  causing it to lose to any path that carries an explicit MED.
+
+  Vendor note:
+    - Cisco IOS / IOS-XE / NX-OS: missing MED = 0 (most preferred) by default.
+    - Junos: same default; configurable via `med-plus-igp` and policy.
+    - Some older platforms: differed historically. RFC 4271 leaves
+      the treatment of missing MED implementation-defined.
+
+  This is one of the most operationally important default-vs-toggle
+  questions in BGP, because mismatched assumptions between operators
+  at a peering boundary lead to silent asymmetric routing.
+
+common_wrong_answers:
+  - answer: "Path A wins. A missing MED is treated as the maximum value."
+    why_wrong: "This is the *non-default* behavior, requiring `bgp bestpath med missing-as-worst`. Out of the box, missing MED = 0."
+  - answer: "Tie — MED comparison undefined."
+    why_wrong: "MED comparison is well-defined when one attribute is absent: the missing value is substituted with the configured default (0 by default)."

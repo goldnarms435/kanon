@@ -1,0 +1,121 @@
+id: evpn-001
+version_introduced: "0.1"
+category: evpn-route-types
+subcategory: nlri-decoding
+difficulty: intermediate
+tags:
+  - type-2
+  - mac-ip
+  - nlri
+  - esi
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 7432 §7.2 (MAC/IP Advertisement Route)"
+
+prompt: |
+  The following EVPN route appears in `show bgp l2vpn evpn` output:
+
+      *>i[2]:[0]:[0]:[48]:[0010.0100.0001]:[32]:[10.10.10.1]/272
+
+  Identify the following fields and explain what each indicates:
+
+  (1) Route type
+  (2) ESI value and what it signifies
+  (3) Ethernet Tag ID
+  (4) MAC address length and the MAC itself
+  (5) IP address length and the IP itself
+  (6) What the trailing /272 represents
+
+scoring:
+  type: structured
+  required_fields:
+    - field: route_type
+      accepted:
+        - "Type-2"
+        - "Type 2"
+        - "MAC/IP advertisement"
+        - "MAC-IP"
+      weight: 20
+    - field: esi_meaning
+      accepted:
+        - "single-homed"
+        - "no Ethernet Segment"
+        - "all-zeros ESI"
+        - "ESI 0"
+      weight: 20
+    - field: ethernet_tag_id
+      accepted:
+        - "0"
+        - "zero"
+        - "single broadcast domain"
+      weight: 15
+    - field: mac_length_and_value
+      accepted:
+        - "48 bits"
+        - "0010.0100.0001"
+      weight: 15
+    - field: ip_length_and_value
+      accepted:
+        - "/32"
+        - "32 bits"
+        - "10.10.10.1"
+        - "IPv4 host"
+      weight: 15
+    - field: trailing_length_meaning
+      accepted:
+        - "total NLRI length in bits"
+        - "272 bits"
+        - "length of the NLRI encoding"
+      weight: 15
+
+reference_answer: |
+  **Decoded fields:**
+
+    (1) **Route type: Type-2** — MAC/IP Advertisement route per
+        RFC 7432. Carries (MAC, optional IP) bindings for host-route
+        distribution across the EVPN fabric.
+
+    (2) **ESI: 0 (all zeros)** — Ethernet Segment Identifier of zero
+        indicates a single-homed host (no multihoming). A non-zero
+        ESI would identify a specific Ethernet Segment shared
+        between two or more PE/VTEPs.
+
+    (3) **Ethernet Tag ID: 0** — In VLAN-based service mode (the
+        common case), Ethernet Tag ID 0 is used; in VLAN-aware
+        bundle service, this field carries the customer VLAN ID. A
+        value of 0 here is the default for VLAN-based service.
+
+    (4) **MAC length: 48 bits, MAC: 0010.0100.0001** — Standard 48-bit
+        Ethernet MAC. RFC 7432 mandates MAC length of 48.
+
+    (5) **IP length: /32, IP: 10.10.10.1** — IPv4 host route. The
+        host's IP is being advertised alongside the MAC, enabling
+        symmetric IRB and ARP/ND suppression at remote VTEPs. The
+        IP field is optional in Type-2; when absent, this is a
+        MAC-only Type-2.
+
+    (6) **/272** — Total NLRI length in bits.
+        Verification: 1 (route-type indicator overhead, sometimes
+        excluded in display) + ESI 10 bytes (80 bits) + Eth Tag ID
+        4 bytes (32 bits) + MAC length byte (8) + MAC (48) + IP
+        length byte (8) + IPv4 (32) + label(s) (24+ bits) ≈ 272 bits
+        depending on label encoding. The exact arithmetic varies
+        with the label count; the field is informational, indicating
+        the NLRI's encoded length.
+
+  **Operational significance:**
+  Seeing this Type-2 with both MAC and IP means the originating VTEP
+  has learned both the L2 (MAC) and L3 (ARP/ND) bindings for the
+  host. Remote VTEPs will install the MAC for L2 forwarding and the
+  /32 host route in the corresponding L3 VRF for symmetric IRB
+  routing.
+
+common_wrong_answers:
+  - answer: "ESI 0 means multihomed with no priority set."
+    why_wrong: "ESI of all-zeros explicitly indicates *single-homed*. Non-zero ESIs identify shared Ethernet Segments for multihoming."
+  - answer: "Ethernet Tag ID 0 means VLAN 0."
+    why_wrong: "In VLAN-based service mode, Ethernet Tag ID is 0 by convention regardless of customer VLAN. The customer VLAN is implied by the MAC-VRF / VNI context."

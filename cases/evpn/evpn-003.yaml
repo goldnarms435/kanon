@@ -1,0 +1,143 @@
+id: evpn-003
+version_introduced: "0.1"
+category: evpn-route-types
+subcategory: esi-multihoming
+difficulty: expert
+tags:
+  - esi
+  - multihoming
+  - all-active
+  - aliasing
+  - designated-forwarder
+  - type-1
+  - type-4
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 7432 §8 (Designated Forwarder Election)"
+  - "RFC 7432 §14 (Multihoming Functions)"
+  - "RFC 7432 §8.5 (Aliasing and Backup Path)"
+
+prompt: |
+  Two leaf VTEPs (Leaf-1 and Leaf-2) connect to a single dual-homed
+  customer CE via a LAG. The CE-facing interfaces on both leaves are
+  configured with the same Ethernet Segment Identifier
+  (ESI 00:11:22:33:44:55:66:77:88:99) and the multihoming mode is
+  `all-active`.
+
+  Hosts behind the CE are MAC-learned on either Leaf-1 or Leaf-2
+  depending on which leaf the CE happens to hash a given frame to.
+
+  (1) Which EVPN route types are exchanged between Leaf-1 and Leaf-2
+      to support this multihomed Ethernet Segment, and what does
+      each accomplish?
+  (2) How is unicast traffic from a remote VTEP load-balanced across
+      Leaf-1 and Leaf-2 for MACs known to be behind this ESI?
+  (3) Does Designated Forwarder (DF) election still occur in
+      all-active mode? If so, what does the DF do that a non-DF
+      does not?
+
+scoring:
+  type: rubric
+  judge: claude-opus
+  judge_prompt_ref: rubrics/standard-rubric-v0.1.md
+  criteria:
+    - id: identifies_type1_ead
+      weight: 20
+      description: "Identifies Type-1 Ethernet Auto-Discovery (EAD) routes — both EAD-per-ES (for fast withdrawal / mass-withdraw) and EAD-per-EVI (for aliasing) — exchanged between Leaf-1 and Leaf-2."
+    - id: identifies_type4_es
+      weight: 15
+      description: "Identifies Type-4 Ethernet Segment routes used for DF election and ES auto-discovery (peers with the same ESI find each other via Type-4)."
+    - id: aliasing_loadbalancing
+      weight: 25
+      description: "Explains aliasing: remote VTEPs receive Type-2 from one leaf for a MAC, but use Type-1 EAD-per-EVI from both leaves to ECMP-load-balance unicast traffic to that MAC across both Leaf-1 and Leaf-2 VTEPs."
+    - id: df_role_correct
+      weight: 25
+      description: "States that DF election still occurs in all-active mode. The DF is responsible for forwarding BUM (broadcast/unknown-unicast/multicast) traffic *into* the Ethernet Segment from the EVPN core, preventing duplicate frames to the CE. Non-DF nodes drop BUM destined for the ES."
+    - id: avoids_misconceptions
+      weight: 15
+      description: "Does not claim only DF forwards unicast (incorrect — unicast is load-balanced both ways). Does not confuse all-active with single-active (where only DF forwards everything, including unicast)."
+  max_score: 100
+  pass_threshold: 70
+
+reference_answer: |
+  (1) **Route types exchanged:**
+
+      **Type-1 — Ethernet Auto-Discovery (EAD)** — two flavors:
+        - **EAD-per-ES** (per Ethernet Segment): used for fast mass-
+          withdraw. When a leaf loses its connection to the ES, it
+          withdraws this single route and remote VTEPs immediately
+          stop using it as an alias path for all MACs behind the ES.
+        - **EAD-per-EVI** (per EVPN Instance / MAC-VRF): one route
+          per (ES, EVI) tuple. This is the route remote VTEPs use
+          for aliasing — they learn from Type-1 EAD-per-EVI that
+          both Leaf-1 and Leaf-2 are valid next-hops for MACs in
+          the EVI behind this ES.
+
+      **Type-2 — MAC/IP advertisement** — carries individual host
+        MACs (and optionally IPs) learned on the ES, with the ESI in
+        the route. Only the leaf that locally learned a given MAC
+        advertises the Type-2 for it; the other leaf does not
+        duplicate-advertise.
+
+      **Type-3 — Inclusive Multicast Ethernet Tag** — advertised per
+        VNI for BUM replication. Both Leaf-1 and Leaf-2 advertise
+        Type-3 for VNIs they participate in.
+
+      **Type-4 — Ethernet Segment route** — used for ES auto-discovery
+        and DF election. Leaf-1 and Leaf-2 each advertise Type-4 with
+        the shared ESI. This is how they discover each other as peers
+        on the same ES and run the DF election.
+
+  (2) **Aliasing / unicast load-balancing:**
+
+      A remote VTEP receives a Type-2 from (say) Leaf-1 for MAC X
+      behind ESI 00:11:22:33:44:55:66:77:88:99. It also receives
+      Type-1 EAD-per-EVI from both Leaf-1 and Leaf-2 for that ESI in
+      that EVI.
+
+      Aliasing logic: even though only Leaf-1 advertised the Type-2
+      for MAC X, the remote VTEP knows from EAD-per-EVI that Leaf-2
+      is *also* a valid forwarder for any MAC behind that ESI in
+      that EVI. The remote VTEP installs both Leaf-1's and Leaf-2's
+      VTEP IPs as next-hops for MAC X and ECMP-load-balances unicast
+      traffic across them.
+
+      This is the defining mechanism of EVPN all-active: unicast is
+      load-balanced; the CE's LAG hash on the return path balances
+      the reverse direction.
+
+  (3) **DF election still occurs in all-active mode.**
+
+      DF election (RFC 7432 §8.5, "modulus" or HRW/highest-random-
+      weight in newer drafts) selects one VTEP per (ES, VLAN) tuple
+      as the Designated Forwarder.
+
+      **DF's exclusive role in all-active:** forward BUM
+      (broadcast / unknown-unicast / multicast) traffic from the
+      EVPN core *into* the Ethernet Segment toward the CE. Without
+      DF election, both Leaf-1 and Leaf-2 would deliver the same BUM
+      frame to the CE, producing duplicates.
+
+      Non-DF nodes still:
+        - Receive and forward unicast traffic to/from the ES
+          (no DF restriction on unicast).
+        - Learn MACs from the ES and advertise their own Type-2s.
+        - Forward BUM *out of* the ES toward the EVPN core (split-
+          horizon prevents this from looping back).
+
+      Contrast with **single-active** mode, where the DF forwards
+      *all* traffic (unicast + BUM) to/from the ES and the non-DF
+      blocks traffic — used when the CE cannot LAG or requires
+      strict active/standby semantics.
+
+common_wrong_answers:
+  - answer: "Only the DF forwards traffic; the non-DF is in standby."
+    why_wrong: "That describes single-active, not all-active. In all-active, unicast is load-balanced; only BUM is restricted to the DF."
+  - answer: "Remote VTEPs install ECMP because the same Type-2 is advertised by both leaves."
+    why_wrong: "Only the leaf that locally learned the MAC advertises Type-2 for it. Aliasing is driven by Type-1 EAD-per-EVI, not duplicate Type-2 advertisements."
+  - answer: "Type-3 routes are used for DF election."
+    why_wrong: "Type-4 (Ethernet Segment route) is used for ES discovery and DF election. Type-3 (IMET) is for BUM flood lists per VNI."

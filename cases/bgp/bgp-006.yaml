@@ -1,0 +1,71 @@
+id: bgp-006
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: advertisement-policy
+difficulty: advanced
+tags:
+  - best-external
+  - convergence
+  - ibgp
+  - fast-convergence
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "draft-ietf-idr-best-external (BGP Best-External)"
+  - "Cisco IOS-XE BGP Best External Configuration Guide"
+
+prompt: |
+  PE-1 has two paths to 10.0.0.0/24:
+
+  - eBGP path from CE-A: Local Preference 100 (default), MED 0.
+  - iBGP path from RR:    Local Preference 200, MED 0.
+
+  Without any non-default knobs, PE-1 installs the iBGP path as best
+  (LP 200 > 100) and does not advertise its eBGP-learned path to
+  other iBGP peers (since it is not the BGP best path).
+
+  What does the `bgp advertise-best-external` feature change?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "Forces eBGP-learned paths to always win over iBGP-learned paths regardless of attributes."
+    B: "Causes PE-1 to advertise the best eBGP path to its iBGP peers in addition to the iBGP-best path, improving convergence when the iBGP-preferred egress fails."
+    C: "Disables iBGP split-horizon so iBGP-learned routes can be re-advertised to other iBGP peers."
+    D: "Enables route reflection for routes received from external peers only."
+  correct: B
+
+reference_answer: |
+  **B. `bgp advertise-best-external` causes the router to advertise
+  the best *external* (eBGP) path to its iBGP peers, in addition to
+  the overall best path, even when an iBGP path is currently
+  preferred.**
+
+  Operational purpose: fast convergence on egress failure.
+
+  Without `advertise-best-external`, PE-1 only advertises the iBGP-
+  preferred path. If that iBGP egress fails, PE-1 must wait for BGP
+  reconvergence across the iBGP fabric before traffic can shift to
+  PE-1's local eBGP path. With `advertise-best-external`, PE-1's
+  local eBGP path is already known by other PEs as an alternate, and
+  recovery is nearly immediate.
+
+  Common deployment: dual-homed PE designs where one PE has a
+  preferred upstream via iBGP-learned routes but maintains a local
+  eBGP backup. Often paired with BGP Add-Paths for richer alternate-
+  path distribution.
+
+  This does NOT:
+    - Change best-path selection (iBGP path is still installed locally).
+    - Force eBGP-over-iBGP independent of LP (that requires LP tuning).
+    - Disable split-horizon (split-horizon still applies to iBGP-
+      *learned* paths; this feature operates on the local eBGP path).
+
+common_wrong_answers:
+  - answer: "Forces eBGP-learned paths to always win over iBGP-learned paths regardless of attributes."
+    why_wrong: "Best-path selection is unchanged. The feature only affects what is advertised to iBGP peers."
+  - answer: "Disables iBGP split-horizon."
+    why_wrong: "Split-horizon for iBGP-learned routes still applies. The advertised route is a local eBGP path, not a reflected iBGP path."

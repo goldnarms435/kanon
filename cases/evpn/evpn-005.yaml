@@ -1,0 +1,184 @@
+id: evpn-005
+version_introduced: "0.1"
+category: evpn-troubleshooting
+subcategory: control-plane-diagnostic
+difficulty: expert
+tags:
+  - troubleshooting
+  - type-2
+  - type-3
+  - mac-vrf
+  - route-target
+  - rca
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 7432 §7.2 (Type-2 MAC/IP)"
+  - "RFC 7432 §7.3 (Type-3 IMET)"
+  - "Cisco NX-OS EVPN Troubleshooting Guide"
+
+prompt: |
+  Symptom report from an operator:
+
+      Host-A on Leaf-1 (VLAN 100, VNI 10100, VTEP 10.0.0.1) cannot
+      ARP for Host-B on Leaf-2 (same VLAN 100, same VNI 10100,
+      VTEP 10.0.0.2).
+
+  Diagnostic state on Leaf-1:
+
+      Leaf-1# show bgp l2vpn evpn summary
+      Neighbor   AS     State/Up    Prfx/Sent
+      10.0.0.10  65000  Established 14/8
+      (peer is the route reflector; session is up)
+
+      Leaf-1# show bgp l2vpn evpn
+      *>i[3]:[0]:[32]:[10.0.0.2]/80   from RR  origin: Leaf-2
+      *>i[3]:[0]:[32]:[10.0.0.3]/80   from RR  origin: Leaf-3
+      ... (multiple Type-3 IMET routes from other VTEPs)
+      (NO Type-2 routes from Leaf-2 for VNI 10100 hosts)
+
+      Leaf-1# show nve peers
+      10.0.0.2 -- VNI 10100 -- Up
+      10.0.0.3 -- VNI 10100 -- Up
+      (VTEP peering looks healthy)
+
+  iBGP sessions are up. Underlay reachability between VTEPs is
+  confirmed. Type-3 (IMET) routes are being received from Leaf-2 for
+  VNI 10100. But no Type-2 routes from Leaf-2 are visible on Leaf-1.
+
+  (1) What does the presence of Type-3 without Type-2 from Leaf-2 tell
+      you about the state of the EVPN control plane?
+  (2) List the candidate root causes, ordered from most-likely to
+      least-likely given the diagnostic state shown.
+  (3) Specify the diagnostic command sequence to confirm or rule out
+      each candidate cause, executed in the order you would run them.
+
+scoring:
+  type: rubric
+  judge: claude-opus
+  judge_prompt_ref: rubrics/standard-rubric-v0.1.md
+  criteria:
+    - id: interprets_type3_vs_type2
+      weight: 15
+      description: "Correctly interprets that Type-3 (IMET) is generated per locally-configured VNI and proves only that VNI 10100 is configured on Leaf-2 and the MAC-VRF is exporting routes. It does NOT prove that any hosts have been learned in that VNI on Leaf-2. Type-2 is generated per locally-learned MAC."
+    - id: rt_mismatch_correctly_ruled_unlikely
+      weight: 15
+      description: "Notes that RT (route-target) mismatch is *unlikely* given that Type-3 from Leaf-2 IS being imported — both Type-2 and Type-3 use the same MAC-VRF RT for that VNI, so an RT mismatch would suppress both. Strong reasoning under the diagnostic constraints."
+    - id: ranks_local_mac_learning_first
+      weight: 25
+      description: "Ranks 'Host-B's MAC not learned locally on Leaf-2' as the most likely root cause given the evidence. Reasoning: if the MAC is not in Leaf-2's local MAC table, no Type-2 is generated even with all EVPN config correct."
+    - id: identifies_other_candidates
+      weight: 20
+      description: "Identifies other plausible candidates: ARP/ND suppression failure on Leaf-2 (MAC learned but IP binding incomplete), Type-2 advertisement disabled or filtered by route-map / advertise commands on Leaf-2, MAC mobility duplicate-MAC freeze suppressing advertisement, host data-plane never sent traffic so MAC never learned."
+    - id: diagnostic_command_sequence
+      weight: 25
+      description: "Proposes a correct diagnostic sequence starting on Leaf-2: (1) `show mac address-table vlan 100` to confirm local MAC learning, (2) `show bgp l2vpn evpn route-type 2` on Leaf-2 to check Type-2 generation, (3) `show ip arp suppression-cache` (NX-OS) or equivalent for ARP suppression state, (4) check route-map / advertise config under the L2VPN EVPN address family on Leaf-2. Sequence starts on the *advertising* side, not the *receiving* side, because the missing route is Leaf-2's responsibility to generate."
+  max_score: 100
+  pass_threshold: 70
+
+reference_answer: |
+  (1) **Interpretation of Type-3 without Type-2:**
+
+      Type-3 (Inclusive Multicast Ethernet Tag) is advertised by a
+      VTEP **per locally-configured VNI** to populate the BUM flood
+      list. Its presence proves:
+        - VNI 10100 is configured on Leaf-2.
+        - Leaf-2's MAC-VRF for VNI 10100 is exporting routes.
+        - The L2VPN EVPN address family is operational between
+          Leaf-2 and the RR for that MAC-VRF.
+
+      Type-3 does **NOT** prove that any host MAC has been learned on
+      Leaf-2 in that VNI. Type-2 (MAC/IP advertisement) is generated
+      per locally-learned MAC. The control-plane state is consistent
+      with "VNI is configured and operational on Leaf-2, but no host
+      MAC has been learned locally."
+
+  (2) **Candidate root causes, ranked most→least likely:**
+
+      **Most likely:**
+      1. **Host-B's MAC is not learned in Leaf-2's local MAC table.**
+         Host-B hasn't sent any data-plane traffic (e.g., powered
+         off, in a hung boot state, or its NIC is disabled), so
+         Leaf-2 has no MAC entry to advertise.
+
+      2. **ARP/ND suppression cache empty or failing.**
+         The MAC might be learned but the IP binding hasn't been
+         established (no ARP probe completed). Some implementations
+         require the IP binding for Type-2 with IP (only MAC-only
+         Type-2 would be advertised, which still wouldn't help ARP).
+
+      3. **Host-B's interface is in the wrong VLAN.**
+         Cabling or switchport access-vlan misconfiguration places
+         Host-B in a VLAN other than 100 on Leaf-2.
+
+      **Less likely (but worth ruling out):**
+      4. **Type-2 advertisement disabled or filtered.**
+         A route-map or `no advertise-default-gw` / vendor-specific
+         filter under the L2VPN EVPN address family on Leaf-2.
+
+      5. **MAC mobility duplicate-MAC freeze.**
+         The MAC has been declared duplicate due to rapid mobility
+         and advertisement is suppressed pending hold-down expiry.
+
+      **Ruled unlikely (with reasoning):**
+      - **RT mismatch in MAC-VRF on Leaf-1.**
+        If Leaf-1 were not importing Leaf-2's MAC-VRF RT, neither
+        Type-2 nor Type-3 would be visible. Since Type-3 IS visible,
+        the RT is correctly imported.
+      - **iBGP session / underlay issue.**
+        Sessions are Established and Type-3 routes are flowing —
+        these are confirmed working.
+
+  (3) **Diagnostic command sequence — start on Leaf-2 (advertiser):**
+
+      ```
+      # 1. Confirm Host-B's MAC is learned locally on Leaf-2:
+      Leaf-2# show mac address-table vlan 100
+      Leaf-2# show mac address-table address <Host-B-MAC>
+
+      # 2. Confirm Leaf-2 is generating a Type-2 for Host-B:
+      Leaf-2# show bgp l2vpn evpn route-type 2
+      # (or `show bgp l2vpn evpn | include <Host-B-MAC>`)
+
+      # 3. Check ARP/ND suppression cache for the host's IP binding:
+      Leaf-2# show ip arp suppression-cache detail            # NX-OS
+      # Junos equivalent: `show evpn arp-table`
+
+      # 4. Inspect EVPN advertisement policy on Leaf-2:
+      Leaf-2# show running-config | section bgp
+      # Look for: route-maps under l2vpn evpn neighbor config,
+      # `advertise-system-mac` / `advertise-default-gw` toggles,
+      # any `route-target` mismatch in the MAC-VRF.
+
+      # 5. If MAC is learned but no Type-2 — check duplicate-MAC state:
+      Leaf-2# show l2route mac all                             # NX-OS
+      Leaf-2# show evpn database mac-address <mac>             # Junos
+      # Look for `duplicate` or `frozen` flags.
+
+      # 6. Cross-check on Leaf-1 (receiver) — only AFTER Leaf-2 confirms
+      #    it IS advertising; if Leaf-2 is sending but Leaf-1 is not
+      #    receiving, then check Leaf-1 import policy / RR session.
+      Leaf-1# show bgp l2vpn evpn neighbors <RR> received-routes
+      Leaf-1# show running-config | section bgp
+      ```
+
+      **Why start on Leaf-2, not Leaf-1:**
+      The missing route is Leaf-2's responsibility to advertise. If
+      Leaf-2 isn't generating the Type-2 in the first place, no
+      amount of inspection on Leaf-1 will find it. Generalist
+      diagnostic instincts often start on the symptom-reporting side
+      (Leaf-1); the CCIE instinct is to start on the side that owns
+      the missing artifact.
+
+common_wrong_answers:
+  - answer: "RT mismatch in the MAC-VRF — Leaf-1 isn't importing Leaf-2's routes."
+    why_wrong: "Type-3 from Leaf-2 IS visible on Leaf-1, and Type-3 uses the same MAC-VRF RT as Type-2. An RT mismatch would suppress both. The evidence rules this out."
+  - answer: "iBGP session to RR is down."
+    why_wrong: "Session state is shown as Established, and other routes are flowing through. Ruled out by the diagnostic data provided."
+  - answer: "Start by checking `show bgp l2vpn evpn received-routes` on Leaf-1 in detail."
+    why_wrong: "Inverts the diagnostic order. The missing route is Leaf-2's to generate; start there. Verifying receipt on Leaf-1 first wastes a diagnostic cycle."
+  - answer: "Bounce the iBGP session."
+    why_wrong: "Session is healthy and other prefixes are flowing. Bouncing produces churn without addressing the root cause and is exactly the kind of action a real CCIE avoids."

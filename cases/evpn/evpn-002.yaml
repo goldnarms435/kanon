@@ -1,0 +1,113 @@
+id: evpn-002
+version_introduced: "0.1"
+category: evpn-route-types
+subcategory: mac-mobility
+difficulty: advanced
+tags:
+  - type-2
+  - mac-mobility
+  - sequence-number
+  - duplicate-mac
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 7432 §15 (MAC Mobility)"
+  - "RFC 7432 §15.1 (Sticky MAC)"
+
+prompt: |
+  Host MAC `0050.5601.0042` first appears on Leaf-1 (VTEP 10.0.0.1)
+  in VNI 10100. Leaf-1 advertises a Type-2 route for this MAC with
+  MAC Mobility extended community sequence number 0.
+
+  Two minutes later, the same MAC appears as a locally learned MAC on
+  Leaf-2 (VTEP 10.0.0.2) in the same VNI 10100 — a VM has been
+  vMotioned.
+
+  (1) Describe what Leaf-2 does when it learns this MAC locally
+      while a Type-2 from Leaf-1 already exists in its EVPN table.
+  (2) Describe what Leaf-1 does upon receiving Leaf-2's new
+      advertisement.
+  (3) If this same MAC subsequently flaps between Leaf-1 and Leaf-2
+      rapidly and repeatedly, what protective behavior should
+      activate, and at approximately what threshold?
+
+scoring:
+  type: rubric
+  judge: claude-opus
+  judge_prompt_ref: rubrics/standard-rubric-v0.1.md
+  criteria:
+    - id: leaf2_increments_sequence
+      weight: 25
+      description: "States that Leaf-2 advertises a new Type-2 for the MAC with sequence number incremented to 1 (one higher than the highest sequence it has seen for this MAC)."
+    - id: remote_vteps_update_forwarding
+      weight: 15
+      description: "Notes that remote VTEPs receive the higher-sequence advertisement and update their forwarding to point to Leaf-2."
+    - id: leaf1_withdraws_old_advertisement
+      weight: 25
+      description: "Explains that Leaf-1, upon receiving Leaf-2's higher-sequence advertisement for a MAC it considers locally owned, sees that the MAC has moved and withdraws its own (lower-sequence) Type-2 advertisement. The local MAC entry on Leaf-1 ages out or is flushed."
+    - id: duplicate_mac_protection
+      weight: 25
+      description: "Identifies that rapid flapping triggers duplicate-MAC detection. References the RFC 7432 default of 5 moves within 180 seconds (or equivalent vendor default), after which the MAC is declared duplicate and frozen (advertisement suppressed). Acknowledges vendor variation in exact threshold."
+    - id: avoids_invented_behavior
+      weight: 10
+      description: "Does not invent ARP-based or STP-based mobility mechanisms. Does not confuse MAC mobility with ESI/multihoming election."
+  max_score: 100
+  pass_threshold: 70
+
+reference_answer: |
+  (1) **Leaf-2 advertises a new Type-2 with sequence 1.**
+      Leaf-2 sees the existing Type-2 from Leaf-1 (sequence 0) for
+      MAC 0050.5601.0042. When the MAC is locally learned on Leaf-2,
+      Leaf-2 generates its own Type-2 advertisement for the MAC,
+      attaching a MAC Mobility extended community with sequence
+      number incremented to 1 (one greater than the highest sequence
+      it has observed for this MAC).
+
+  (2) **Remote VTEPs update; Leaf-1 withdraws.**
+      All EVPN PEs/VTEPs receive Leaf-2's sequence-1 advertisement.
+      Per RFC 7432 §15, the route with the higher sequence wins, and
+      remote VTEPs update their forwarding entries to point traffic
+      for this MAC toward Leaf-2's VTEP IP.
+
+      Leaf-1, upon receiving the sequence-1 advertisement for a MAC
+      it currently considers locally owned, recognizes that the MAC
+      has moved. Leaf-1 withdraws its own sequence-0 advertisement
+      and the local MAC entry is flushed (or allowed to age out).
+      Some implementations send an explicit withdraw immediately.
+
+  (3) **Duplicate-MAC detection.**
+      Per RFC 7432 §15.1 and common vendor practice, if a MAC moves
+      more than N times within an interval (the RFC's default
+      recommendation is 5 moves within 180 seconds), the MAC is
+      declared "duplicate." Once declared duplicate:
+        - Further mobility advertisements for that MAC are
+          suppressed.
+        - The MAC is held at its current VTEP (or held in error
+          state) until an operator clears it or a hold-down timer
+          expires.
+        - A syslog/alarm is typically generated for operator
+          attention.
+
+      Vendor variations:
+        - Cisco NX-OS: default 5 moves / 180 seconds.
+        - Arista EOS: default 5 moves / 180 seconds (configurable).
+        - Junos: default 5 moves / 180 seconds (configurable).
+      Threshold and hold-down timer are tunable on all major
+      platforms.
+
+  Note: A separate concept ("sticky MAC") uses the high-order bit of
+  the MAC Mobility flags to mark a MAC as immobile (e.g., for a
+  default gateway anycast MAC). Sticky-flagged MACs do not increment
+  sequence on mobility — instead, advertisements that try to move a
+  sticky MAC are ignored.
+
+common_wrong_answers:
+  - answer: "Leaf-1 sends a GARP / G-ARP to update remote MAC tables."
+    why_wrong: "EVPN mobility uses Type-2 advertisements with the MAC Mobility extended community. GARP is an L2 mechanism unrelated to EVPN control-plane mobility."
+  - answer: "STP root election determines which VTEP owns the MAC."
+    why_wrong: "STP has no role here. EVPN mobility is decided by sequence numbers in the BGP control plane."
+  - answer: "The MAC will be installed on both leaves simultaneously."
+    why_wrong: "Higher sequence wins. Only the winning VTEP retains the MAC. The losing leaf withdraws its advertisement."

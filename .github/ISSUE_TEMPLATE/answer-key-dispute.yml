@@ -1,0 +1,54 @@
+name: Answer Key Dispute
+description: Dispute a published Kanon answer key
+title: "[Answer Dispute] "
+labels:
+  - answer-dispute
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when you believe a published answer key is incorrect.
+        Include an RFC or vendor-doc citation — disputes without public sources
+        cannot be accepted.
+
+  - type: input
+    id: case_id
+    attributes:
+      label: Case ID
+      description: e.g. `bgp-001` or `evpn-005`
+      placeholder: bgp-001
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_answer
+    attributes:
+      label: Current answer (as published)
+      description: Quote the relevant portion of `reference_answer` or scoring key
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_correction
+    attributes:
+      label: Proposed correction
+      description: What the answer key should say instead, with reasoning
+    validations:
+      required: true
+
+  - type: textarea
+    id: citation
+    attributes:
+      label: RFC / vendor-doc citation
+      description: Public source supporting the correction (RFC section, vendor doc URL)
+      placeholder: RFC 7432 §7.2; Juniper EVPN route-types public documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Vendor/platform nuances, lab reproduction notes, or related cases
+    validations:
+      required: false

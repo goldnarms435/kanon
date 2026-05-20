@@ -1,0 +1,30 @@
+name: Validate Cases
+
+on:
+  pull_request:
+    paths:
+      - "cases/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "cases/**"
+
+jobs:
+  validate-cases:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validation dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Validate case YAML files
+        run: python scripts/validate_cases.py

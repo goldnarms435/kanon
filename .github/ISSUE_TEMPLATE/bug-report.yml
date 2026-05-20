@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report a bug in Kanon tooling, CI, or repository infrastructure
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report bugs in validation scripts, GitHub Actions, documentation, or
+        repository infrastructure. For answer-key disputes on a specific case,
+        use the **Answer Key Dispute** template instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: Clear description of what went wrong
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps to reproduce the issue
+      placeholder: |
+        1. Run `python scripts/validate_cases.py`
+        2. Observe error on bgp-003.yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: environment_os
+    attributes:
+      label: OS
+      placeholder: Windows 11, macOS 14, Ubuntu 22.04
+    validations:
+      required: true
+
+  - type: input
+    id: environment_python
+    attributes:
+      label: Python version
+      placeholder: "3.11.8"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste relevant command output or link screenshots
+      render: shell
+    validations:
+      required: false

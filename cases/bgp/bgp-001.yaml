@@ -1,0 +1,64 @@
+id: bgp-001
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: decision-process-ordering
+difficulty: intermediate
+tags:
+  - med
+  - as-path
+  - decision-process
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 4271 §9.1 (BGP Decision Process)"
+  - "Cisco BGP Best Path Selection Algorithm (cisco.com/c/en/us/support/docs/ip/border-gateway-protocol-bgp/13753-25.html)"
+
+prompt: |
+  Router R1 has two iBGP-learned paths to prefix 10.0.0.0/24:
+
+  - Route A: Local Preference 100, AS-path "65001 65002", MED 50,
+            next-hop reachable via OSPF with cost 20.
+  - Route B: Local Preference 100, AS-path "65003",       MED 0,
+            next-hop reachable via OSPF with cost 30.
+
+  Both routes are valid and have synchronized next-hops. No non-default
+  BGP best-path knobs are configured (no always-compare-med, no
+  deterministic-med, default behavior throughout).
+
+  Which route is installed as best, and on which attribute is the
+  decision made?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "Route A wins on lower MED (50 < 0 is incorrect; A loses on MED but wins on lower IGP cost to next-hop)."
+    B: "Route B wins on shorter AS-path length (1 < 2). MED and IGP cost are never evaluated."
+    C: "Route A wins on lower IGP cost to next-hop (20 < 30)."
+    D: "Route B wins on lower MED (0 < 50)."
+  correct: B
+
+reference_answer: |
+  **Route B wins on shorter AS-path length.**
+
+  BGP best-path comparison in order (Cisco/standard):
+    1. Weight (not set, tie)
+    2. Local Preference: 100 = 100, tie
+    3. Locally originated: neither, tie
+    4. **AS-path length: A=2, B=1 → B wins. STOP.**
+
+  MED, eBGP-over-iBGP, IGP cost, and router-ID are never evaluated.
+  The decision process is short-circuited the moment a tiebreaker
+  resolves.
+
+  This case exists because generalist LLMs frequently jump to MED or
+  IGP cost when they see them in the prompt, even when an earlier
+  tiebreaker has already decided the outcome.
+
+common_wrong_answers:
+  - answer: "Route A wins on lower IGP cost to next-hop."
+    why_wrong: "IGP cost is evaluated only after MED. AS-path length resolves the comparison first."
+  - answer: "Route B wins on lower MED."
+    why_wrong: "Correct route, wrong attribute. MED is never evaluated; AS-path length already decided."

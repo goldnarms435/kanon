@@ -1,0 +1,68 @@
+id: bgp-004
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: med-scoping
+difficulty: expert
+tags:
+  - med
+  - deterministic-med
+  - convergence
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "Cisco BGP Best Path Selection — deterministic-med"
+  - "RFC 5004 §3 (Avoid Order Dependency)"
+
+prompt: |
+  Without `bgp deterministic-med`, BGP best-path selection over routes
+  involving MED comparisons can produce a different "best" depending
+  on the order in which routes were received by the local router —
+  even when the routes themselves have not changed.
+
+  Which configuration knob is designed specifically to eliminate this
+  order-dependent behavior by grouping paths by neighboring AS before
+  best-path selection?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "bgp always-compare-med"
+    B: "bgp deterministic-med"
+    C: "bgp bestpath as-path multipath-relax"
+    D: "bgp bestpath compare-routerid"
+  correct: B
+
+reference_answer: |
+  **`bgp deterministic-med`.**
+
+  Without this knob, the legacy IOS implementation walks the
+  best-path comparison pairwise in received-order. When MED is a
+  tiebreaker and routes from the same neighboring AS are not adjacent
+  in that walk, the selected best can change depending on the
+  arrival sequence — even if no attribute has changed.
+
+  `bgp deterministic-med` enforces:
+    1. Partition paths by neighboring AS.
+    2. Select best path within each AS group (MED considered).
+    3. Compare the per-group bests across groups (MED skipped, unless
+       always-compare-med is also set).
+
+  This produces deterministic, order-independent best-path selection.
+
+  Not to be confused with:
+    - `always-compare-med` — changes the *scope* of MED comparison
+      (across all ASes vs same-AS only). Different problem.
+    - `compare-routerid` — affects router-ID tiebreaking semantics,
+      unrelated to MED.
+
+  Modern IOS-XE / NX-OS enable `deterministic-med` by default in most
+  software trains; the knob is still authoritative.
+
+common_wrong_answers:
+  - answer: "bgp always-compare-med"
+    why_wrong: "Changes the scope of MED comparison, not the determinism of comparison order. Different problem."
+  - answer: "bgp bestpath compare-routerid"
+    why_wrong: "Affects router-ID tiebreaker behavior between iBGP/eBGP paths. Not related to MED order dependency."

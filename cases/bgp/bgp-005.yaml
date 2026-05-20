@@ -1,0 +1,69 @@
+id: bgp-005
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: route-reflection
+difficulty: advanced
+tags:
+  - route-reflector
+  - cluster-list
+  - originator-id
+  - loop-prevention
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 4456 §7 (Avoiding Routing Information Loops)"
+
+prompt: |
+  In a redundant route-reflector design, RR1 (cluster-id 1.1.1.1) and
+  RR2 (cluster-id 2.2.2.2) are both reflecting routes between the
+  same set of clients, and are themselves iBGP peers (non-client to
+  each other).
+
+  A client advertises a route to RR1. RR1 reflects it to RR2. RR2
+  could in principle reflect it back to RR1.
+
+  Which two BGP attributes prevent this from causing a routing
+  information loop?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "cluster-list and originator-id"
+    B: "AS-path and next-hop"
+    C: "router-id and cluster-id"
+    D: "MED and local preference"
+  correct: A
+
+reference_answer: |
+  **`cluster-list` and `originator-id`.**
+
+  RFC 4456 defines two non-transitive attributes for route-reflection
+  loop prevention:
+
+  **originator-id**
+    - Set by the first RR that reflects the route, to the router-id
+      of the iBGP peer that originally advertised the route.
+    - If a router sees a route with its own router-id as
+      originator-id, it ignores the route.
+
+  **cluster-list**
+    - A sequence of cluster-ids. Each RR prepends its own cluster-id
+      when reflecting a route.
+    - If a RR receives a route whose cluster-list already contains
+      its own cluster-id, it drops the route.
+
+  In the scenario: RR1 reflects to RR2 with cluster-list=[1.1.1.1].
+  If RR2 attempted to reflect back to RR1, RR1 would see its own
+  cluster-id in the cluster-list and discard the route. Loop closed.
+
+  AS-path is not used because route-reflection is *within* a single
+  AS (iBGP); AS-path is unchanged across reflectors.
+
+common_wrong_answers:
+  - answer: "AS-path and next-hop"
+    why_wrong: "AS-path does not change across iBGP reflection. It cannot detect loops within an AS."
+  - answer: "router-id and cluster-id"
+    why_wrong: "Close but imprecise. The *attributes* carried in the route are originator-id and cluster-list. router-id is a router property, cluster-id is configured per RR; both inform the carried attributes but are not themselves the loop-prevention attributes."

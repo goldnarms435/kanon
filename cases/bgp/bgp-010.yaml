@@ -1,0 +1,87 @@
+id: bgp-010
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: next-hop-resolution
+difficulty: intermediate
+tags:
+  - next-hop
+  - recursive-lookup
+  - next-hop-self
+  - inaccessible
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 4271 §9.1.2.1 (Route Resolvability Condition)"
+  - "Cisco IOS BGP — Inaccessible Next-Hop and next-hop-self"
+
+prompt: |
+  R1 receives an iBGP route to 10.0.0.0/24 with BGP next-hop
+  192.168.100.5. R1's IGP (OSPF) has no route to 192.168.100.5/32 or
+  any prefix that covers 192.168.100.5.
+
+  Show output on R1:
+
+      R1# show ip bgp 10.0.0.0/24
+      BGP routing table entry for 10.0.0.0/24
+        Paths: (1 available, no best path)
+        Not advertised to any peer
+        ...
+          192.168.100.5 (inaccessible) from <neighbor>
+            Origin IGP, metric 0, localpref 100, valid, internal
+
+  Why is the route marked "no best path," and what is the standard
+  remediation that the operator advertising this route should apply?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "The BGP next-hop 192.168.100.5 is unresolvable via the IGP, so the route fails the route-resolvability condition. The advertising iBGP peer (typically the egress PE / RR-client) should configure `neighbor <ip> next-hop-self` so that an IGP-reachable next-hop is advertised."
+    B: "The MED is 0, which is treated as invalid by default. The advertising peer should set a non-zero MED."
+    C: "The route has localpref 100 which is the default and cannot be installed. Localpref should be raised."
+    D: "Synchronization is enabled and the prefix is not in the IGP. Disabling synchronization will fix it."
+  correct: A
+
+reference_answer: |
+  **A. The BGP next-hop is unresolvable in the IGP, so the path fails
+  the route-resolvability condition and cannot be installed as best.**
+
+  BGP best-path requires that the next-hop be reachable via the
+  routing table (recursive lookup). If the IGP cannot resolve
+  192.168.100.5 to a directly forwardable next-hop, the path is
+  marked `(inaccessible)` and cannot become best. It is `valid` in
+  the sense that the UPDATE is well-formed, but not installable.
+
+  **Standard remediation: `neighbor <ip> next-hop-self`**
+
+  Configured on the iBGP-advertising router (typically an egress PE,
+  a route reflector serving clients, or an ASBR). With `next-hop-self`,
+  the advertising router replaces the original BGP next-hop with its
+  own iBGP-reachable address (usually a loopback). All iBGP
+  receivers then resolve the next-hop to a loopback that *is* in the
+  IGP, and the route becomes installable.
+
+  Alternative remediation:
+    - Redistribute the external next-hop prefix into the IGP
+      (operationally unattractive; pollutes the IGP).
+    - Use a recursive static route on every receiver (operational
+      anti-pattern at scale).
+
+  `next-hop-self` is the canonical solution and the reason every
+  textbook iBGP-edge configuration includes it.
+
+  Note on legacy: `synchronization` (option D) was relevant on IOS
+  prior to 12.2(8)T when BGP required the prefix to also exist in
+  the IGP before advertising. Synchronization has been **disabled by
+  default** since then. It does not apply to the inaccessible-next-
+  hop symptom shown.
+
+common_wrong_answers:
+  - answer: "MED is 0 which is invalid."
+    why_wrong: "MED=0 is valid and is the default-preferred MED value. Has no bearing on next-hop resolvability."
+  - answer: "Synchronization is the problem."
+    why_wrong: "Synchronization has been off by default for over two decades and only blocked iBGP→eBGP advertisement, not best-path selection of iBGP-learned routes."
+  - answer: "Redistribute the next-hop into OSPF."
+    why_wrong: "Technically would work but is an anti-pattern. `next-hop-self` on the advertising peer is the correct remediation."

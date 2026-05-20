@@ -1,0 +1,89 @@
+name: Case Proposal
+description: Propose a new Kanon evaluation case
+title: "[Case Proposal] "
+labels:
+  - case-proposal
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a new case before opening a PR.
+        See `spec/eval-format-v0.1.md` and `CONTRIBUTING.md` for the full checklist.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Primary case category
+      options:
+        - bgp-path-selection
+        - evpn-route-types
+        - evpn-troubleshooting
+        - config-bug-hunt
+        - fabric-design
+        - symptom-rootcause
+        - protocol-theory
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      options:
+        - basic
+        - intermediate
+        - advanced
+        - expert
+        - edge-case
+    validations:
+      required: true
+
+  - type: input
+    id: proposed_id
+    attributes:
+      label: Proposed case ID
+      description: Pattern `<category-short>-NNN`, e.g. `bgp-011`
+      placeholder: bgp-011
+    validations:
+      required: true
+
+  - type: textarea
+    id: topic_summary
+    attributes:
+      label: Topic summary
+      description: One paragraph describing what the case tests and why it matters
+      placeholder: Tests whether the model correctly walks BGP best-path when MED is unset...
+    validations:
+      required: true
+
+  - type: textarea
+    id: draft_yaml
+    attributes:
+      label: Draft YAML
+      description: Paste a draft case file (can be partial)
+      render: yaml
+      placeholder: |
+        id: bgp-011
+        version_introduced: "0.1"
+        category: bgp-path-selection
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Public references
+      description: RFCs, vendor public docs, or IEEE specs supporting the answer key
+      placeholder: RFC 4271 §9.1; Cisco BGP best-path public doc URL
+    validations:
+      required: true
+
+  - type: input
+    id: reviewer
+    attributes:
+      label: Proposed reviewer (CCIE / JNCIE / equivalent)
+      placeholder: Name or handle of credentialed reviewer
+    validations:
+      required: false

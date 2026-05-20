@@ -1,0 +1,100 @@
+id: bgp-009
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: multipath
+difficulty: expert
+tags:
+  - multipath
+  - ecmp
+  - maximum-paths
+  - multipath-relax
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "Cisco IOS-XE BGP Multipath Configuration Guide"
+  - "RFC 7911 §3 (Add-Paths) — adjacent feature for richer alternates"
+
+prompt: |
+  R1 is an iBGP-speaking router with four iBGP-learned paths to
+  10.0.0.0/24 from four different next-hops. The operator wants R1 to
+  install all four paths as ECMP for forwarding.
+
+  Answer the following:
+
+  (1) What configuration command enables ECMP installation in BGP?
+  (2) Which BGP attributes must be identical (not just "equal in
+      comparison") across candidate paths for them to be eligible
+      for iBGP multipath?
+  (3) How does eBGP multipath differ in its requirements, and what
+      knob is required to relax those requirements?
+
+scoring:
+  type: rubric
+  judge: claude-opus
+  judge_prompt_ref: rubrics/standard-rubric-v0.1.md
+  criteria:
+    - id: identifies_maximum_paths
+      weight: 20
+      description: "Identifies that `maximum-paths N` (or `maximum-paths ibgp N` for iBGP) is required. By default, BGP installs only the single best path."
+    - id: lists_required_equal_attrs_ibgp
+      weight: 35
+      description: "For iBGP multipath, lists the required equal attributes: Weight, Local Preference, AS-path length (and same neighboring AS / same AS_PATH for strict mode), origin, MED, and IGP cost to next-hop. Mentions that AS_PATH must match exactly in default mode (not just same length)."
+    - id: ebgp_multipath_distinction
+      weight: 25
+      description: "Explains that eBGP multipath by default requires identical AS_PATH (same ASNs in same order), not just same length. Identifies `bgp bestpath as-path multipath-relax` as the knob that relaxes this to same-length-only."
+    - id: avoids_false_claims
+      weight: 20
+      description: "Does not claim that BGP installs ECMP by default. Does not confuse `maximum-paths` with `multipath-relax`. Does not invent attributes that must match."
+  max_score: 100
+  pass_threshold: 70
+
+reference_answer: |
+  (1) **Enabling command:**
+      - eBGP multipath: `maximum-paths N` (under `router bgp <asn>`).
+      - iBGP multipath: `maximum-paths ibgp N`.
+      - eiBGP multipath (where supported): `maximum-paths eibgp N`.
+      Default is 1 — only the single best path is installed.
+
+  (2) **iBGP multipath — required equal attributes:**
+      All paths must tie through the BGP best-path comparison up to
+      and including IGP cost to next-hop. Specifically:
+        - Weight (tied)
+        - Local Preference (equal)
+        - AS-path length (equal)
+        - In default mode, AS_PATH must match exactly (same ASNs in
+          same order), not just same length
+        - Origin code (equal)
+        - MED (equal)
+        - IGP cost to next-hop (equal)
+      The router-ID and other later tiebreakers may differ.
+
+  (3) **eBGP multipath differences:**
+      eBGP multipath requires that the paths come from the same
+      neighboring AS (the leftmost AS in AS_PATH) AND that the
+      AS_PATH is identical (same ASNs in same order), not just same
+      length.
+
+      `bgp bestpath as-path multipath-relax` relaxes the second
+      requirement: paths with the same AS_PATH *length* (same number
+      of ASes) become eligible, even if the specific ASes differ.
+      This is commonly used in data-center fabrics with eBGP-
+      everywhere where leaves peer with multiple spines whose
+      upstream AS-paths diverge.
+
+      `multipath-relax` does NOT change the same-neighboring-AS
+      requirement for eBGP multipath — that requirement still holds.
+
+  This question routinely catches generalist LLMs that conflate
+  "equal in comparison" with "identical." AS_PATH length 2 does not
+  imply AS_PATH `65001 65010` matches AS_PATH `65002 65020`.
+
+common_wrong_answers:
+  - answer: "BGP installs ECMP by default if next-hops differ."
+    why_wrong: "BGP installs exactly one best path by default. `maximum-paths` is required for ECMP."
+  - answer: "`multipath-relax` relaxes the same-neighboring-AS requirement."
+    why_wrong: "It relaxes the same-AS_PATH requirement to same-length-only. The same-neighboring-AS requirement still applies."
+  - answer: "iBGP multipath only requires same Local Preference and same AS-path length."
+    why_wrong: "Omits MED, IGP cost to next-hop, origin, and the AS_PATH-identical requirement (in default mode)."

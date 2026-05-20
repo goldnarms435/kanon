@@ -1,0 +1,4 @@
+# CCIE editor owns case content and rubrics. All case PRs require their review.
+/cases/    @<ERNEST_GITHUB_HANDLE>
+/rubrics/  @<ERNEST_GITHUB_HANDLE>
+/spec/     @<ERNEST_GITHUB_HANDLE>

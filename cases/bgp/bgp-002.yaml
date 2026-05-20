@@ -1,0 +1,63 @@
+id: bgp-002
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: med-scoping
+difficulty: advanced
+tags:
+  - med
+  - neighboring-as
+  - decision-process
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 4271 §9.1.2.2 (Breaking Ties Phase 2)"
+  - "Cisco IOS BGP Best Path Selection (default MED scoping behavior)"
+
+prompt: |
+  Router R1 receives three eBGP paths to 10.0.0.0/24:
+
+  - Route A: from peer in AS 65001, AS-path "65001 65010", MED 100, IGP cost to NH 10.
+  - Route B: from peer in AS 65001, AS-path "65001 65020", MED 50,  IGP cost to NH 20.
+  - Route C: from peer in AS 65002, AS-path "65002 65030", MED 10,  IGP cost to NH 30.
+
+  Local Preference is 100 on all three. All AS-paths have length 2.
+  No always-compare-med, no deterministic-med, no other non-default
+  best-path knobs.
+
+  Which route is installed as best?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "Route A — lowest IGP cost to next-hop (10)."
+    B: "Route B — wins MED within AS 65001 group, then beats C on IGP cost."
+    C: "Route C — lowest MED globally (10)."
+    D: "Route A — eBGP, oldest path."
+  correct: B
+
+reference_answer: |
+  **Route B.**
+
+  Default BGP behavior compares MED **only between routes received
+  from the same neighboring (left-most) AS**. The decision proceeds:
+
+    1. Partition by neighboring AS:
+       - AS 65001 group: {A, B}
+       - AS 65002 group: {C}
+    2. Within AS 65001: MED A=100 vs B=50 → B wins.
+    3. Compare B vs C across groups: MED is SKIPPED.
+    4. Both eBGP, both AS-path length 2 → continue.
+    5. IGP cost to next-hop: B=20, C=30 → B wins.
+
+  C has the lowest MED globally, but default behavior never compares
+  it against A or B because they are from a different neighboring AS.
+  Enabling `bgp always-compare-med` changes the answer (see bgp-003).
+
+common_wrong_answers:
+  - answer: "Route C — lowest MED globally."
+    why_wrong: "MED is not compared across different neighboring ASes by default. Requires `always-compare-med`."
+  - answer: "Route A — lowest IGP cost."
+    why_wrong: "IGP cost is evaluated only after MED. Within the AS 65001 group, B beats A on MED before IGP cost is reached."

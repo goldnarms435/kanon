@@ -1,0 +1,65 @@
+id: bgp-007
+version_introduced: "0.1"
+category: bgp-path-selection
+subcategory: confederation
+difficulty: advanced
+tags:
+  - confederation
+  - as-path
+  - sub-as
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "RFC 5065 (Autonomous System Confederations for BGP)"
+
+prompt: |
+  AS 65001 is a BGP confederation containing three member sub-ASes:
+  65501, 65502, and 65503. A route is originated by a router in
+  sub-AS 65503, traverses sub-AS 65502 and 65501, exits the
+  confederation via an eBGP peering to AS 65100, and is finally
+  received by an external observer in AS 65200.
+
+  What does the AS-path attribute look like to that external observer
+  in AS 65200?
+
+scoring:
+  type: multiple_choice
+  choices:
+    A: "65100 (65501 65502 65503) 65001"
+    B: "65100 65001"
+    C: "65100 65501 65502 65503"
+    D: "65100 65001 65501 65502 65503"
+  correct: B
+
+reference_answer: |
+  **`65100 65001`.**
+
+  Per RFC 5065, the confederation member-AS sequences
+  (AS_CONFED_SEQUENCE / AS_CONFED_SET) are local to the confederation
+  and are **stripped at the confederation boundary** when the route
+  is advertised externally. The external view of a confederation is a
+  single AS number — the confederation identifier.
+
+  Inside the confederation, the member AS-path is carried in the
+  AS_CONFED_SEQUENCE segment, which is displayed in parentheses on
+  Cisco/many vendors (e.g., `(65501 65502 65503)`). These segments
+  are removed when the route exits the confederation via eBGP to a
+  non-member AS.
+
+  From the perspective of AS 65200:
+    - The route appears to traverse AS 65001 (the confederation ID).
+    - Member-AS structure is hidden.
+    - AS-path length seen externally is 2 (`65100 65001`), not 5.
+
+  This invisibility is a defining property of confederations and the
+  reason they are used to reduce iBGP full-mesh requirements without
+  exposing internal topology to external peers.
+
+common_wrong_answers:
+  - answer: "65100 (65501 65502 65503) 65001"
+    why_wrong: "The confederation member sequence is stripped at the boundary. External observers never see member-AS data, with or without parentheses."
+  - answer: "65100 65001 65501 65502 65503"
+    why_wrong: "Same issue — member-AS data does not appear in the external AS-path."

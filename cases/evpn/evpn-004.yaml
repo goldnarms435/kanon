@@ -1,0 +1,124 @@
+id: evpn-004
+version_introduced: "0.1"
+category: evpn-route-types
+subcategory: irb-modes
+difficulty: advanced
+tags:
+  - irb
+  - symmetric
+  - asymmetric
+  - l3-vni
+  - vxlan
+status: active
+author: netbench-seed
+created_at: "2026-05-20"
+reviewed_by:
+  - "pending: CCIE editor"
+references:
+  - "draft-ietf-bess-evpn-inter-subnet-forwarding"
+  - "RFC 9135 (Integrated Routing and Bridging in EVPN)"
+
+prompt: |
+  EVPN-VXLAN supports two Integrated Routing and Bridging (IRB) modes
+  for inter-subnet forwarding: asymmetric IRB and symmetric IRB.
+
+  Answer the following:
+
+  (1) Describe the packet-walk for inter-subnet traffic from
+      Host-A (VNI 10100) on Leaf-1 to Host-B (VNI 10200) on Leaf-2
+      in **asymmetric IRB** mode. Identify which VTEP performs L3
+      lookup, which VNI is on the VXLAN-encapsulated packet, and
+      what configuration scaling implication this mode has.
+
+  (2) Describe the same packet-walk in **symmetric IRB** mode.
+      Identify the role of the L3 VNI (transit VNI), which VTEPs
+      perform L3 lookups, and how the scaling implication differs.
+
+  (3) Which mode is dominant in modern multivendor EVPN-VXLAN
+      deployments and why?
+
+scoring:
+  type: rubric
+  judge: claude-opus
+  judge_prompt_ref: rubrics/standard-rubric-v0.1.md
+  criteria:
+    - id: asymmetric_packet_walk
+      weight: 25
+      description: "Correctly describes asymmetric IRB: ingress VTEP (Leaf-1) performs L3 lookup, rewrites MACs, and encapsulates with the *destination* VNI (10200). Egress VTEP (Leaf-2) only performs L2 lookup and bridges to Host-B. Identifies that Leaf-1 must have VNI 10200 (and its associated SVI/MAC-VRF) locally configured even though no host in VNI 10200 is on Leaf-1."
+    - id: asymmetric_scaling_implication
+      weight: 15
+      description: "States that asymmetric IRB requires every VTEP to be configured with every VNI for any VNI it might route into — does not scale well in large fabrics with many tenant subnets."
+    - id: symmetric_packet_walk
+      weight: 25
+      description: "Correctly describes symmetric IRB: ingress VTEP (Leaf-1) performs L3 lookup, encapsulates with the *L3 VNI* (transit VNI for the tenant VRF), not the destination L2 VNI. Egress VTEP (Leaf-2) decapsulates, performs *another* L3 lookup using the L3 VNI's VRF, and bridges the result into the destination L2 VNI 10200 toward Host-B. Both VTEPs perform L3 lookups."
+    - id: symmetric_scaling_implication
+      weight: 20
+      description: "States that symmetric IRB only requires each VTEP to be configured with the VNIs for locally attached subnets, plus the per-VRF L3 VNI. Scales much better — each VTEP is configured for what it terminates, not for every reachable subnet."
+    - id: dominance_and_rationale
+      weight: 15
+      description: "Identifies symmetric IRB as dominant in modern deployments due to scaling, multivendor interoperability (RFC 9135 / draft-ietf-bess-evpn-inter-subnet alignment), and operational simplicity. Notes Cisco NX-OS, Arista EOS, Juniper Junos, and SR Linux/SR-OS all implement symmetric IRB as the default for new deployments."
+  max_score: 100
+  pass_threshold: 70
+
+reference_answer: |
+  (1) **Asymmetric IRB:**
+      - Host-A → Leaf-1: Leaf-1 receives the frame, sees the
+        destination MAC is the SVI (anycast gateway) for VNI 10100.
+      - Leaf-1 performs an L3 lookup in the tenant VRF. Destination
+        Host-B is in VNI 10200, learned via Type-2 from Leaf-2.
+      - Leaf-1 rewrites src-MAC to its own SVI MAC for VNI 10200,
+        dst-MAC to Host-B's MAC.
+      - Leaf-1 encapsulates with **VXLAN VNI 10200** (the destination
+        L2 VNI) and tunnels to Leaf-2.
+      - Leaf-2 decapsulates, performs only an L2 lookup in VNI 10200,
+        bridges to Host-B.
+
+      **Scaling implication:** Leaf-1 must have VNI 10200 locally
+      configured (with its SVI and MAC-VRF) even though no host in
+      that subnet is attached to Leaf-1. In a large multi-tenant
+      fabric, every leaf ends up configured with every VNI it might
+      ever route into — config bloat and resource exhaustion.
+
+  (2) **Symmetric IRB:**
+      - Host-A → Leaf-1: L3 lookup in the tenant VRF.
+      - Leaf-1 rewrites MACs (src = Leaf-1's router-MAC for the
+        tenant VRF, dst = Leaf-2's router-MAC for the tenant VRF,
+        carried in Type-2 attribute or Type-5 attribute).
+      - Leaf-1 encapsulates with **VXLAN L3 VNI** — the transit VNI
+        for the tenant VRF (e.g., L3 VNI 5000), **not** VNI 10200.
+      - Leaf-1 tunnels to Leaf-2.
+      - Leaf-2 decapsulates, sees the L3 VNI, looks it up to
+        identify the tenant VRF.
+      - Leaf-2 performs a **second L3 lookup** in that tenant VRF,
+        finds Host-B in VNI 10200 locally.
+      - Leaf-2 rewrites MACs again and bridges to Host-B in VNI 10200.
+
+      Both VTEPs perform L3 lookups (symmetric).
+
+      **Scaling implication:** Leaf-1 only needs VNI 10100 (its
+      local subnet) and the tenant's L3 VNI. It does NOT need VNI
+      10200. Per-VTEP configuration scales with locally attached
+      subnets, not with the fabric-wide subnet count.
+
+  (3) **Symmetric IRB is dominant** in modern multivendor deployments:
+      - Scales linearly with locally attached subnets per VTEP, not
+        with fabric-wide subnet count.
+      - RFC 9135 aligns vendor implementations on symmetric IRB
+        semantics, improving multivendor interop.
+      - Cisco NX-OS, Arista EOS, Juniper Junos, Nokia SR Linux /
+        SR-OS all default to or recommend symmetric IRB for new
+        deployments.
+      - Cleaner operational model: a VTEP only carries config for
+        what it actually terminates.
+
+      Asymmetric IRB is sometimes still used in small fabrics or
+      special interop cases but is no longer the default in
+      mainstream EVPN-VXLAN deployments.
+
+common_wrong_answers:
+  - answer: "Asymmetric uses one VNI, symmetric uses two VNIs visible on the wire."
+    why_wrong: "Misleading framing. Each encapsulated packet carries exactly one VNI in both modes. The distinction is *which* VNI: destination L2 VNI (asymmetric) vs L3/transit VNI (symmetric)."
+  - answer: "Symmetric IRB requires MPLS."
+    why_wrong: "Symmetric IRB is a property of the IRB packet-walk and is independent of underlay encapsulation. It is used with VXLAN, MPLS, SRv6, and other underlays."
+  - answer: "Asymmetric IRB is faster because it skips the second L3 lookup."
+    why_wrong: "Modern ASICs perform L3 lookup in pipeline at line rate. The 'second lookup' in symmetric IRB has no measurable forwarding-rate impact. The trade-off is config scale and operational model, not data-plane performance."
