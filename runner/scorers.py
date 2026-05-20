@@ -9,6 +9,8 @@ from typing import Any, Protocol
 
 from .cases import Case
 
+DEFAULT_STRUCTURED_PASS_RATIO = 0.70
+
 
 @dataclass
 class ScoreResult:
@@ -117,7 +119,9 @@ def score_structured(case: Case, response: str) -> ScoreResult:
             }
         )
 
-    threshold = float(case.scoring.get("pass_threshold", max_score))
+    threshold = float(
+        case.scoring.get("pass_threshold", max_score * DEFAULT_STRUCTURED_PASS_RATIO)
+    )
     return ScoreResult(
         case_id=case.id,
         scoring_type="structured",

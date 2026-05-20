@@ -88,7 +88,8 @@ def build_case_messages(case: Case, system_prompt: str | None = None) -> list[di
     scoring_type = case.scoring.get("type")
     if scoring_type == "multiple_choice":
         instruction = (
-            "Answer with the single best choice letter first, then a concise "
+            "Your first line must contain exactly one choice letter and nothing "
+            "else, for example: B. After that first line, include a concise "
             "one-sentence explanation."
         )
     else:

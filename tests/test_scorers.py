@@ -95,6 +95,27 @@ def test_structured_sums_field_weights() -> None:
     assert result.passed is True
 
 
+def test_structured_defaults_pass_threshold_to_seventy_percent() -> None:
+    case = make_case(
+        "evpn-997",
+        {
+            "type": "structured",
+            "required_fields": [
+                {"field": "route_type", "accepted": ["Type-2"], "weight": 35},
+                {"field": "esi", "accepted": ["single-homed"], "weight": 35},
+                {"field": "ip", "accepted": ["10.10.10.1"], "weight": 30},
+            ],
+        },
+    )
+
+    result = score_structured(case, "It is Type-2 and the ESI is single-homed.")
+
+    assert result.score == 70
+    assert result.max_score == 100
+    assert result.details["pass_threshold"] == 70
+    assert result.passed is True
+
+
 def test_parse_rubric_judge_result_accepts_json_wrapped_in_text() -> None:
     case = make_case(
         "bgp-998",

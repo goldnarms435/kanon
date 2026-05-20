@@ -35,6 +35,11 @@ python -m runner \
 {"case_id": "bgp-001", "response": "B. Route B wins on shorter AS-path."}
 ```
 
+For multiple-choice cases, the runner scores the first valid choice letter it can
+extract from the response. Model prompts require the first line to contain
+exactly one choice letter so runs measure the case answer rather than prose
+formatting.
+
 ## Run an OpenAI-Compatible Model
 
 The runner calls `/chat/completions` on the configured base URL:
@@ -93,6 +98,16 @@ python -m runner --dry-run --model reference-answer --cases cases --out leaderbo
 
 Rubric cases are intentionally unscored in dry-run mode unless a judge is
 configured.
+
+## Pass Thresholds
+
+- `multiple_choice`: pass if the extracted letter equals `scoring.correct`.
+- `exact_match`: pass if one accepted answer matches under the case's declared
+  match mode.
+- `structured`: pass if the weighted score is at least `pass_threshold`; when a
+  case omits `pass_threshold`, the default is `70%` of summed field weights.
+- `rubric`: pass/fail comes from the judge JSON, typically using the case's
+  `pass_threshold`.
 
 ## Outputs
 

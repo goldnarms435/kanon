@@ -24,7 +24,8 @@ def test_build_case_messages_uses_default_system_prompt() -> None:
 
     assert messages[0]["role"] == "system"
     assert messages[0]["content"] == DEFAULT_SYSTEM_PROMPT
-    assert "single best choice letter" in messages[1]["content"]
+    assert "first line must contain exactly one choice letter" in messages[1]["content"]
+    assert "for example: B" in messages[1]["content"]
 
 
 def test_build_case_messages_accepts_agent_profile_prompt() -> None:

@@ -92,6 +92,8 @@ scoring:
 ```
 
 Scored exact-match on the choice letter. Models are instructed to answer with the letter only.
+The runner prompt requires the first response line to contain exactly one choice
+letter; explanatory prose may follow on later lines.
 
 ### 2. `exact_match`
 
@@ -157,6 +159,10 @@ scoring:
       accepted: ["0"]
       weight: 25
 ```
+
+If `pass_threshold` is omitted, the runner uses `70%` of the summed field
+weights. Cases may override this with an explicit `pass_threshold` when exact
+completion is required.
 
 ---
 
